@@ -21,7 +21,7 @@ public class Network {
         this.inputSize = networkLayerSize[0];
         this.outputSize = networkLayerSize[networkSize - 1];
 
-        this.output = new double[networkSize][1];
+        this.output = new double[networkSize][1]; //this stores output at all nodes for backpropigation
         this.weight = new double[networkSize][1][1];
         this.bias = new double[networkSize][1];
         
@@ -34,7 +34,7 @@ public class Network {
             this.errorSignal[i] = new double [networkLayerSize[i]];
             this.outputDerivative[i] = new double [networkLayerSize[i]];
             
-            this.bias[i] = NetworkTools.createRandomArray(networkLayerSize[i], 0.3, 0.7);
+            this.bias[i] = NetworkTools.createRandomArray(networkLayerSize[i], 0.3, 0.7); //these upper and lower bounds can be anything that is reasonable
             
             if (i > 0){
                 weight[i] = NetworkTools.createRandomArray(networkLayerSize[i], networkLayerSize[i-1], 0.3, 0.7);
@@ -53,9 +53,9 @@ public class Network {
                 for (int prevNeuron = 0; prevNeuron < networkLayerSize[layer - 1]; prevNeuron++){
                     sum += output[layer - 1][prevNeuron] * weight[layer][neuron][prevNeuron];
                 }
-                output[layer][neuron] = sigmoid(sum);
+                output[layer][neuron] = sigmoid(sum); //this make sure we always have a value between 0 and 1
                 
-                outputDerivative[layer][neuron] = output[layer][neuron] * (1 - output[layer][neuron]);
+                outputDerivative[layer][neuron] = output[layer][neuron] * (1 - output[layer][neuron]); //this gives values closer to 0.5 high signifgence so 
             }
         }
         return output[networkSize - 1];
@@ -70,11 +70,10 @@ public class Network {
         updateWeight(eta);
     }
     
-    //calculates a very rough error, used to modify the outputDerivative that modifies the weigth(later)
+    //calculates a the error, used to modify the outputDerivative that modifies the weigth(later)
     public void backpropError(double[] target) {
         for (int neuron = 0; neuron < networkLayerSize[networkSize - 1]; neuron++){ //loops for last layer
-            errorSignal[networkSize - 1][neuron] = (output[outputSize-1][neuron] - target[neuron]) 
-                * outputDerivative[networkSize-1][neuron];
+            errorSignal[networkSize - 1][neuron] = (output[outputSize-1][neuron] - target[neuron]) * outputDerivative[networkSize-1][neuron];
         }
         
         for(int layer = networkSize - 2; layer > 0 ; layer--){ //loops for all hiden layers, back to front
@@ -102,7 +101,7 @@ public class Network {
         }
     }
     
-    //makes sure the number converge
+    //makes sure the number converge, all values of x are pushed to a value 0 to 1
     private double sigmoid (double x) {
         return 1.0d / (1 + Math.exp(-x));
     }
