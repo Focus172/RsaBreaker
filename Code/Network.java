@@ -1,4 +1,7 @@
-import java.util.*; 
+package Code;
+
+import java.util.*;
+import Helpers.NetworkHelper;
 
 public class Network {
     private double [][] output; //output [layer][neuron]
@@ -34,10 +37,10 @@ public class Network {
             this.errorSignal[i] = new double [networkLayerSize[i]];
             this.outputDerivative[i] = new double [networkLayerSize[i]];
             
-            this.bias[i] = NetworkTools.createRandomArray(networkLayerSize[i], 0.3, 0.7); //these upper and lower bounds can be anything that is reasonable
+            this.bias[i] = NetworkHelper.createRandomArray(networkLayerSize[i], 0.3, 0.7); //these upper and lower bounds can be anything that is reasonable
             
             if (i > 0){
-                weight[i] = NetworkTools.createRandomArray(networkLayerSize[i], networkLayerSize[i-1], 0.3, 0.7);
+                weight[i] = NetworkHelper.createRandomArray(networkLayerSize[i], networkLayerSize[i-1], 0.3, 0.7);
             }
         }
     }
@@ -54,15 +57,17 @@ public class Network {
                     sum += output[layer - 1][prevNeuron] * weight[layer][neuron][prevNeuron];
                 }
                 output[layer][neuron] = sigmoid(sum); //this make sure we always have a value between 0 and 1
-                
-                outputDerivative[layer][neuron] = output[layer][neuron] * (1 - output[layer][neuron]); //this gives values closer to 0.5 high signifgence so 
+
+                //updating values for later backpropigation
+                outputDerivative[layer][neuron] = output[layer][neuron] * (1 - output[layer][neuron]); //this gives values closer to 0.5 high signifgence so
             }
         }
         return output[networkSize - 1];
     }
     
     //the main meathod called in each iteration, eta is the rate at which the program "takes risks"
-    public void train(double[] input, double [] target, double eta){
+    public void train(double[] input, double [] target, double eta) {
+        //checking for bad input
         if (input.length != inputSize || target.length != outputSize)
             return;
         calculate(input);
@@ -70,7 +75,7 @@ public class Network {
         updateWeight(eta);
     }
     
-    //calculates a the error, used to modify the outputDerivative that modifies the weigth(later)
+    //calculates the error, used to modify the outputDerivative that modifies the weigth(later)
     public void backpropError(double[] target) {
         for (int neuron = 0; neuron < networkLayerSize[networkSize - 1]; neuron++){ //loops for last layer
             errorSignal[networkSize - 1][neuron] = (output[outputSize-1][neuron] - target[neuron]) * outputDerivative[networkSize-1][neuron];
@@ -105,19 +110,5 @@ public class Network {
     private double sigmoid (double x) {
         return 1.0d / (1 + Math.exp(-x));
     }
-    
-    //the main method, it does the computor things
-    public static void main (String [] args){
-        int[] networkNodes = new int[]{7,5,5,3};
-        Network net = new Network(networkNodes);
-        
-        double[] input = new double[]{0.5,0.7,0.5,0.1,0.3,0.5,0.9};
-        double[] target = new double[]{0.1,0.3,0.5};
-        
-        for (int i = 0; i < 1000; i++)
-            net.train(input, target, 0.05);
-        
-        double[] output = net.calculate(input);
-        System.out.println(Arrays.toString(output));
-    }
+
 }

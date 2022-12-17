@@ -1,4 +1,6 @@
-public class NetworkTools {
+package Helpers;
+
+public class NetworkHelper {
     
     //creats an array with the same value in all spots
     public static double[] createArray(int size, double value){
