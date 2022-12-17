@@ -1,16 +1,13 @@
 package Helpers;
 
-public class NetworkHelper {
+public interface NetworkHelper {
     
-    //creats an array with the same value in all spots
+    //creates an array with the same value in all spots
     public static double[] createArray(int size, double value){
-        if(size < 1){
-            return null;
-        }
+        assert (size > 0);
+
         double[] array = new double[size];
-        for(int i = 0; i < size; i++){
-            array[i] = value;
-        }
+        for(int i = 0; i < size; i++) { array[i] = value; }
         return array;
     }
     
@@ -53,4 +50,9 @@ public class NetworkHelper {
         }
         return index;
     }
+
+    public static double sigmoid (double x) {
+        return 1.0d / (1 + Math.exp(-x));
+    }
+
 }

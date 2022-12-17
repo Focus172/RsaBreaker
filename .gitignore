@@ -1,4 +1,4 @@
 # a dirty solution to orinizations
 .idea
-out/basicNerualNetwork.iml
 .DS_Store
+out

@@ -1,4 +1,3 @@
-# basicNerualNetwork
+# RsaBreaker
 
-comments should explain everything.
-this project is by no means finished
+A fun little project where I use a neural networks to try to break RSA encryption.

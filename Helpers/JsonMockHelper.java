@@ -2,7 +2,7 @@ package Helpers;
 
 import DataTypes.JsonMock;
 
-public class DataSetHelper {
+public interface JsonMockHelper {
 
     public static JsonMock makeTrainingData () {
         return null;
