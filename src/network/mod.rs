@@ -1,36 +1,77 @@
-package Code;
+use crate::data::KeySet;
 
-import java.util.*;
-import Helpers.NetworkHelper;
+struct KeyRange {
+    factor_1_lowerbound: i64,
+    factor_1_upperbound: i64,
+    factor_2_lowerbound: i64,
+    factor_2_upperbound: i64,
+}
 
-public class Network {
-    private double [][] output; //output [layer][neuron]
-    private double [][][] weight; //weights [layer][neuron][previousNeuron], defined by the two neurons it joins
-    private double [][] bias; //bias [layer][neuron], doesnt need preivous neuron bc the prev is always the bias
+pub struct Network {
+    layers: Vec<Layer>,
+}
+
+impl Network {
+    pub fn new(layers_sizes: Vec<i32>) -> Network {  
+        Network {
+            layers: layers_sizes.iter().map(|size| {
+                Layer::new(size)
+            }).collect()
+        }
+    }
     
-    private double [][] errorSignal;
-    private double [][] outputDerivative;
+    pub fn train(&mut self, keys: KeySet, eta: f32) {
 
-    public final int[] networkLayerSize; //size of each layer, first and last must be the same size as input and target
-    public final int inputSize; //number of nuerons in input layer
-    public final int outputSize; //number of neurons in output layer
-    public final int networkSize; //number of nueron layers
-    
-    //constructor, it does stuff
-    public Network(int[] networkLayerSize) {
-        //initiates variables as defined above
-        this.networkLayerSize = networkLayerSize;
-        this.networkSize = networkLayerSize.length;
-        this.inputSize = networkLayerSize[0];
-        this.outputSize = networkLayerSize[networkSize - 1];
+    }
 
-        this.output = new double[networkSize][1]; //this stores output at all nodes for backpropigation
-        this.weight = new double[networkSize][1][1];
-        this.bias = new double[networkSize][1];
-        
-        this.errorSignal = new double[networkSize][1];
-        this.outputDerivative = new double[networkSize][1];
+    pub fn make_guess(&self, pub_key: &str) -> KeyRange {
+        KeyRange {
+            factor_1_lowerbound: 0,
+            factor_1_upperbound: 100,
+            factor_2_lowerbound: 0,
+            factor_2_upperbound: 100,
+        }
+    } 
+}
 
+struct Layer {
+    nodes: Vec<Node>
+}
+
+impl Layer {
+    fn new(number_nodes: &i32) -> Layer {
+        Layer {
+            nodes: (0..*number_nodes).map(|_| {
+                Node::new()
+            }).collect()
+        }
+    }
+}
+
+struct Node {
+    bias: f32,
+    weight: Vec<f32>,
+    prev_output: f32,
+    prev_error_signla: f32,
+    prev_output_derivative: f32,
+}
+
+    //
+    // public Network(int[] networkLayerSize) {
+    //     //initiates variables as defined above
+    //     this.networkLayerSize = networkLayerSize;
+    //     this.networkSize = networkLayerSize.length;
+    //     this.inputSize = networkLayerSize[0];
+    //     this.outputSize = networkLayerSize[networkSize - 1];
+    //
+    //     this.output = new double[networkSize][1]; //this stores output at all nodes for backpropigation
+    //     this.weight = new double[networkSize][1][1];
+    //     this.bias = new double[networkSize][1];
+    //     
+    //     this.errorSignal = new double[networkSize][1];
+    //     this.outputDerivative = new double[networkSize][1];
+    //
+/* 
         for (int i = 0; i < networkSize; i++) {
             this.output[i] = new double [networkLayerSize[i]];
             
@@ -108,3 +149,4 @@ public class Network {
     }
 
 }
+*/
