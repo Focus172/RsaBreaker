@@ -1,5 +1,4 @@
-extern crate rand;
-
+#![allow(unused)]
 mod data;
 mod network;
 
@@ -8,10 +7,9 @@ use network::Network;
 
 //#[tokio::main]
 fn main() {
-    let nodes = vec![7, 5, 5, 3];
-    let mut network = Network::new(nodes);
+    let mut network = Network::new([7, 5, 5, 3]);
 
-    let data = Data::new();
+    let mut data = Data::new();
 
     while let Some(data) = data.next() {
         network.train(data, 0.1);

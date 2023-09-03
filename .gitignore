@@ -1,9 +1,1 @@
-# a dirty solution to orinizations
-.idea
-.DS_Store
-out
-
-
-# Added by cargo
-
 /target

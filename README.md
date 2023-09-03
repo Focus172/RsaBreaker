@@ -1,3 +1,3 @@
-# goose guess
+# Goose
 
-Using AI to try to break encryption.
+Guessing at encryption keys using AI (and math).
