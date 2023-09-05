@@ -1,94 +1,86 @@
-use rand::{random, rngs::ThreadRng};
+use core::task;
+use std::ops::Range;
 
-use rsa::{RsaPrivateKey, RsaPublicKey};
+// use tokio::sync::mpsc::TryRecvError;
 
-pub struct KeySet {
-    pub pub_key: RsaPublicKey,
-    priv_key: RsaPrivateKey,
-}
+use tokio::sync::mpsc;
+use tokio::task::JoinHandle;
 
-const BITS: usize = 2048;
+use rand::rngs::ThreadRng;
 
-impl KeySet {
-    pub fn new(rng: &mut ThreadRng) -> KeySet {
-        let priv_key = RsaPrivateKey::new(rng, BITS).expect("failed to generate a key");
-        let pub_key = RsaPublicKey::from(&priv_key);
+use rsa::{traits::PrivateKeyParts, BigUint, RsaPrivateKey, RsaPublicKey};
 
-        KeySet { pub_key, priv_key }
-    }
-}
+use crate::traits::AsTrainingData;
 
 // fn print(&self) {
 //    println!("Public keys: {} {}", self.pub_key.0, self.pub_key.1);
 //    println!("Private keys: {} {}", self.priv_key.0, self.priv_key.1);
 // }
+
+/// An infinite, async iterable data source for key pairs
 pub struct Data {
-    rng: ThreadRng,
+    rx: mpsc::Receiver<(RsaPublicKey, RsaPrivateKey)>,
+    handle: Option<JoinHandle<()>>,
 }
 
 impl Data {
-    pub fn new() -> Data {
-        let mut rng = rand::thread_rng();
-        Data { rng }
+    const BITS: usize = 64;
+    // const BITS: usize = 2048;
+
+    pub async fn new() -> Data {
+        let (tx, rx) = mpsc::channel(16);
+
+        let handle = tokio::spawn(async move {
+            while !tx.is_closed() {
+                // the thread rng is droped at the end of this block so this fn is send
+                let priv_key = {
+                    let mut rng = rand::thread_rng();
+                    RsaPrivateKey::new(&mut rng, Self::BITS).expect("failed to generate a key")
+                };
+
+                let publ_key = RsaPublicKey::from(&priv_key);
+                tx.send((publ_key, priv_key)).await;
+            }
+        });
+
+        Data {
+            rx,
+            handle: Some(handle),
+        }
     }
 
-    pub fn next(&mut self) -> Option<KeySet> {
-        if random::<u8>() as u8 == 1 {
-            None
-        } else {
-            Some(KeySet::new(&mut self.rng))
-        }
+    async fn close(&mut self) {
+        self.rx.close();
+        let h = self
+            .handle
+            .take()
+            .expect("You cannont close the data channel twice");
+        h.await;
+    }
+
+    pub async fn next(&mut self) -> Option<(RsaPublicKey, RsaPrivateKey)> {
+        self.rx.recv().await
     }
 }
 
-//uses the Primality test to generate a large prime number
-fn generate_prime() -> u64 {
-    loop {
-        let num = random::<u64>();
-        if is_prime(num) {
-            return num;
-        }
+impl Drop for Data {
+    fn drop(&mut self) {
+        self.close();
     }
 }
 
-fn prime_bounded_range(phi: &u64) -> u64 {
-    loop {
-        let r = generate_prime();
-        if r < *phi {
-            return r;
-        }
-    }
+pub struct KeyRange {
+    bounds: Vec<Range<BigUint>>,
 }
 
-fn inverse_gcd(e: &u64, phi: &u64) -> u64 {
-    let mut r = 1;
-    loop {
-        r += e;
-        if r % phi == 1 {
-            return r;
-        }
-    }
-}
+impl KeyRange {
+    pub fn contains(&self, priv_key: RsaPrivateKey) -> bool {
+        // TODO: check for size differences in the lists
 
-/// Basic implementation of primality test
-/// Adpated from: https://en.wikipedia.org/wiki/Primality_test#Python
-fn is_prime(n: u64) -> bool {
-    if n == 2 || n == 3 {
-        return true;
+        priv_key
+            .primes()
+            .iter()
+            .zip(self.bounds.iter())
+            .all(|(factor, range)| range.contains(factor))
     }
-    if n < 2 || n % 2 == 0 || n % 3 == 0 {
-        return false;
-    }
-    let mut i = 5;
-
-    // let limit = sqrt(n)
-    // for i in 5..limit.filter(|n| n % 6 != 0)
-
-    while i * i <= n {
-        if n % i == 0 || n % (i + 2) == 0 {
-            return false;
-        }
-        i += 6;
-    }
-    true
 }
