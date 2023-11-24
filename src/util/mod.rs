@@ -1,11 +1,12 @@
 pub mod rand;
 
-fn sized_seq<const N: usize>(indices: [usize; N]) -> [usize; N] {
-    let mut a = [0; N];
-
-    for (i, thing) in a.iter_mut().enumerate() {
-        *thing = i;
-    }
-
-    a
-}
+// fn sized_seq<const N: usize>() -> [usize; N] {
+//     // SAFETY: MaybeUninit does not have to be initialized
+//     let mut ret: [MaybeUninit<usize>; N] = unsafe { MaybeUninit::uninit().assume_init() };
+//
+//     ret.iter_mut().enumerate().for_each(|(i, e)| {
+//         e.write(i);
+//     });
+//
+//     unsafe { ret.transpose().assume_init() }
+// }

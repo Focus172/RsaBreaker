@@ -1,128 +1,148 @@
 mod layer;
 mod node;
+mod parse;
+
+use crate::prelude::*;
+use std::rc::Rc;
 
 pub use self::layer::Layer;
+use self::layer::RefLayer;
 pub use self::node::Node;
 
-use crate::data::KeyRange;
-use rsa::{BigUint, RsaPrivateKey};
-use serde::{Deserialize, Serialize};
-
-#[derive(Serialize, Deserialize, Default)]
+#[derive(Debug, Clone)]
 pub struct Network {
-    input_len: usize,
-    output_len: usize,
-    pub layers: Vec<Layer>,
+    pub layers: Rc<[RefLayer]>,
 }
 
 impl Network {
-    pub fn new(layers_sizes: impl IntoIterator<Item = usize>) -> Network {
-        let mut last_layer_size = None;
-        let layers: Vec<Layer> = layers_sizes
-            .into_iter()
-            .map(|size| {
-                let prev_size = last_layer_size.take().unwrap_or(0);
-                last_layer_size = Some(size);
-                Layer::new(size, prev_size)
-            })
-            .collect();
-
-        Network {
-            input_len: layers.first().unwrap().nodes.len(),
-            output_len: layers.last().unwrap().nodes.len(),
-            layers,
-        }
-    }
-
-    pub fn train(
-        &mut self,
-        input: impl IntoIterator<Item = f32>,
-        target: impl IntoIterator<Item = f32>,
-        eta: f32,
-    ) {
-        let _output = self.calculate(input);
+    pub fn train<I>(&self, input: I, target: I, eta: f32)
+    where
+        I: IntoIterator<Item = f32>,
+    {
+        self.calculate(input);
         self.backprop_error(target);
         self.update_weight(eta);
     }
-}
 
-impl Network {
+    // input_len: usize,
+    // output_len: usize,
+
     /// calculates the output of the network for a given input
-    pub fn calculate(&mut self, input: impl IntoIterator<Item = f32>) -> Box<[f32]> {
+    pub fn calculate<I>(&self, input: I)
+    where
+        I: IntoIterator<Item = f32>,
+    {
         // TODO: Check for bad input
 
         self.set_input(input);
 
-        for r in (1..self.layers.len()) {
-            let [prev_layer, cur_layer] = self.layers.get_many_mut([r - 1, r]).unwrap();
+        for curr_layer in self.layers.iter() {
+            let Some(prev_layer) = curr_layer.prev.clone() else {
+                continue;
+            };
 
-            for c in (0..cur_layer.nodes.len()) {
-                let node = cur_layer.nodes.get_mut(c).unwrap();
-
-                let mut sum = node.bias;
-                node.weights
+            for node in curr_layer.nodes.iter() {
+                let mut sum = node.get().bias;
+                node.get()
+                    .weights
                     .iter()
-                    .zip(prev_layer.nodes.iter().map(|n| n.output))
+                    .zip(prev_layer.nodes.iter().map(|n| n.output()))
                     .for_each(|(weight, output)| {
                         sum += output * weight;
                     });
 
-                // TODO: take the sigmoid before setting
-                node.output = sum
+                node.set_output(sum);
             }
         }
-        let last = self.layers.last().unwrap();
-        last.nodes.iter().map(|n| n.output).collect()
     }
 
-    fn set_input(&mut self, input: impl IntoIterator<Item = f32>) {
+    fn set_input<I>(&self, input: I)
+    where
+        I: IntoIterator<Item = f32>,
+    {
+        // fill the remaining data with zeros
+        let input = input.into_iter().chain(std::iter::repeat(0.0));
+
         self.layers
-            .first_mut()
+            .first()
             .unwrap()
             .nodes
-            .iter_mut()
+            .iter()
             .zip(input)
             .for_each(|(node, input)| {
-                node.output = input;
+                node.set_output(input);
             });
     }
 
     /// calculates the error, used to modify the outputDerivative that modifies the weigth(later)
-    fn backprop_error(&mut self, target: impl IntoIterator<Item = f32>) {
+    fn backprop_error<I>(&self, target: I)
+    where
+        I: IntoIterator<Item = f32>,
+    {
+        let target = target.into_iter().chain(std::iter::repeat(0.0));
         self.layers
-            .last_mut()
+            .last()
             .unwrap()
             .nodes
-            .iter_mut()
+            .iter()
             .zip(target)
             .for_each(|(node, target)| {
-                node.error_signal = (node.output - target) * node.output_derivative();
+                node.set_error_signal((node.output() - target) * node.output_derivative())
             });
 
-        self.layers.iter_mut().rev().skip(1).for_each(|l| {
-            l.nodes.iter_mut().for_each(|n| {
+        for next_layer in self.layers.iter().rev() {
+            let Some(curr_layer) = next_layer.prev.clone() else {
+                continue;
+            };
+
+            for (index, node) in curr_layer.nodes.iter().enumerate() {
                 // the sum of weights that point to it
-                let mut sum = 0.;
+                let importance = next_layer
+                    .nodes
+                    .iter()
+                    .map(|n| n.get().weights[index])
+                    .sum::<f32>();
 
-                //             for (int nextNeuron = 0; nextNeuron < networkLayerSize[layer+1]; nextNeuron++){
-                //                 sum += weight[layer+1][nextNeuron][neuron]; //called from point of veiw of next neuron
-                //             }
-                n.error_signal = sum * n.output_derivative();
-            });
-        });
+                node.set_error_signal(importance * node.output_derivative());
+            }
+        }
     }
 
     /// updates the weight of each weight after each iteration
-    fn update_weight(&mut self, eta: f32) {
-        //     for (int layer = 1; layer < networkSize - 1; layer++){
-        //         for (int neuron = 0; neuron < networkLayerSize[layer]; neuron++){
-        //             double delta = -eta * errorSignal[layer][neuron];
-        //             bias [layer][neuron] += delta;
-        //
-        //             for (int prevNeuron = 0; prevNeuron < networkLayerSize[layer - 1]; prevNeuron++){
-        //                 weight[layer][neuron][prevNeuron] += output[layer-1][prevNeuron] * delta;
-        //             }
-        //         }
-        //     }
+    fn update_weight(&self, eta: f32) {
+        for curr_layer in self.layers.iter() {
+            let Some(prev_layer) = curr_layer.prev.clone() else {
+                continue;
+            };
+
+            for node in curr_layer.nodes.iter() {
+                let delta = -eta * node.error_signal();
+                node.get_mut().bias += delta;
+
+                prev_layer
+                    .nodes
+                    .iter()
+                    .map(|n| n.output())
+                    .zip(node.get_mut().weights.iter_mut())
+                    .for_each(|(output, weight)| {
+                        *weight += output * delta;
+                    });
+            }
+        }
     }
+
+    /// returns the output of this network
+    pub fn output(&self) -> Box<[f32]> {
+        self.layers
+            .last()
+            .unwrap()
+            .nodes
+            .iter()
+            .map(|n| n.output())
+            .collect()
+    }
+}
+
+fn sigmoid(i: f32) -> f32 {
+    1. / (1. + f32::exp(-i))
 }

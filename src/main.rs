@@ -1,62 +1,47 @@
-#![allow(unused)]
-#![feature(get_many_mut)]
+// #![allow(unused)]
 
 pub mod data;
 pub mod error;
 pub mod network;
 pub mod prelude;
-pub mod trainer;
 pub mod traits;
 pub mod util;
 
 use crate::prelude::*;
-use std::fs;
 
-use crate::{data::Data, network::Network, trainer::Trainer};
-
-const TRAINING_SET: usize = 10;
+use crate::data::Data;
 
 #[tokio::main]
-async fn main() {
-    start_logger().await;
+async fn main() -> Result<()> {
+    crate::logger();
+
     log::debug!("Log init");
 
-    let mut trainer = Trainer::new(make_network().await);
+    let network = Network::open();
 
     let mut data = Data::new().await;
 
-    /* while*/
-    if let Some((publ_key, priv_key)) = data.next().await {
-        // log::info!("Starting new keyset: {:?}", keyset);
-        trainer.train(publ_key, priv_key);
+    while let Some((publ_key, priv_key)) = data.next().await {
+        let inpt = publ_key.as_training_data();
+        let targ = priv_key.as_training_data();
+
+        network.train(inpt.into_vec(), targ.into_vec(), 0.1);
     }
 
-    let network = trainer.into_inner();
     let f = fs::File::create("nn.json").unwrap();
-    json::to_writer(f, &network);
+    json::to_writer(f, &network)?;
+
+    Ok(())
 }
 
-async fn make_network() -> Network {
-    match fs::File::open("nn.json")
-        .map_err(Into::<Error>::into)
-        .and_then(|f| json::from_reader(f).map_err(Into::<Error>::into))
-    {
-        Ok(n) => n,
-        Err(e) => {
-            log::error!("Network fetch failure: {}", e);
-            log::info!("Creating bare network to remedy");
-            Network::new([7, 5, 5, 3])
-        }
-    }
-}
-
-async fn start_logger() {
+fn logger() {
     simplelog::TermLogger::init(
         log::LevelFilter::Trace,
         simplelog::Config::default(),
         simplelog::TerminalMode::Mixed,
         simplelog::ColorChoice::Auto,
-    );
+    )
+    .unwrap();
 }
 
 // let mut iter = output.into_iter();
