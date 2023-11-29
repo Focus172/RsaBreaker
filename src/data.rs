@@ -1,9 +1,10 @@
 use std::ops::Range;
-
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 
 use rsa::{traits::PrivateKeyParts, BigUint, RsaPrivateKey, RsaPublicKey};
+
+// use std::sync::Barrier;
 
 /// An infinite, async iterable data source for key pairs
 pub struct Data {
@@ -16,11 +17,11 @@ impl Data {
     const BITS: usize = 64;
     // const BITS: usize = 2048;
 
-    pub async fn new() -> Data {
+    pub fn new() -> Data {
         let (tx, rx) = mpsc::channel(16);
 
         let handle = tokio::spawn(async move {
-            'running: while !tx.is_closed() {
+            while !tx.is_closed() {
                 // the thread rng is droped at the end of this block so this fn is send
                 let priv_key = {
                     let mut rng = rand::thread_rng();
@@ -30,7 +31,7 @@ impl Data {
                 let publ_key = RsaPublicKey::from(&priv_key);
                 match tx.send((publ_key, priv_key)).await {
                     Ok(_) => {}
-                    Err(_) => break 'running,
+                    Err(_) => break,
                 }
             }
         });
@@ -52,7 +53,7 @@ impl Data {
     }
 
     pub async fn next(&mut self) -> Option<(RsaPublicKey, RsaPrivateKey)> {
-        if self.sent > 1000 {
+        if self.sent > 20 {
             None
         } else {
             self.sent += 1;

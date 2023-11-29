@@ -1,4 +1,7 @@
 // #![allow(unused)]
+#![feature(alloc_layout_extra)]
+#![feature(iter_map_windows)]
+#![feature(array_windows)]
 
 pub mod data;
 pub mod error;
@@ -6,6 +9,8 @@ pub mod network;
 pub mod prelude;
 pub mod traits;
 pub mod util;
+pub mod world;
+
 
 use crate::prelude::*;
 
@@ -19,17 +24,22 @@ async fn main() -> Result<()> {
 
     let network = Network::open();
 
-    let mut data = Data::new().await;
+    let mut data = Data::new();
 
     while let Some((publ_key, priv_key)) = data.next().await {
         let inpt = publ_key.as_training_data();
         let targ = priv_key.as_training_data();
 
+        // dbg!(&targ);
+
         network.train(inpt.into_vec(), targ.into_vec(), 0.1);
+
+        // dbg!(network.output());
     }
 
-    let f = fs::File::create("nn.json").unwrap();
-    json::to_writer(f, &network)?;
+    let f = fs::File::create("nn.yaml").unwrap();
+    yaml::to_writer(f, &network).unwrap();
+    // json::to_writer_pretty(f, &network)?;
 
     Ok(())
 }

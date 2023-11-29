@@ -1,43 +1,95 @@
-use std::rc::Rc;
+use crate::prelude::*;
+use std::{rc::Rc, sync::Arc};
 
 use serde::{Deserialize, Serialize};
 
-use super::{node::RefNode, Node};
+use super::Node;
 
-#[derive(Debug, Clone)]
-pub struct RefLayer {
-    pub prev: Option<Box<RefLayer>>,
-    pub nodes: Rc<[RefNode]>,
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(from = "InnerLayer")]
+#[serde(into = "InnerLayer")]
+pub struct Layer {
+    // pub prev: Option<Arc<Layer>>,
+    // pub next: Option<Arc<Layer>>,
+    pub nodes: Vec<Arc<Node>>,
 }
 
-impl RefLayer {
-    pub fn new(prev: Option<RefLayer>, nodes: Box<[Node]>) -> Self {
-        let prev = prev.map(Box::new);
+#[derive(Debug, Serialize, Deserialize)]
+pub struct InnerLayer {
+    nodes: Vec<Arc<Node>>,
+    // prev: Vec<Uuid>,
+    // next: Vec<Uuid>,
+}
+
+impl From<InnerLayer> for Layer {
+    fn from(value: InnerLayer) -> Self {
+        for node in value.nodes.iter() {
+            crate::world::add_node(node.uuid, Arc::downgrade(node));
+        }
         Self {
-            prev,
-            nodes: nodes.into_vec().into_iter().map(Into::into).collect(),
+            // prev: value.prev,
+            // next: value.next,
+            nodes: value.nodes,
         }
     }
 }
 
-impl From<&RefLayer> for Layer {
-    fn from(value: &RefLayer) -> Self {
-        let nodes = value.nodes.iter().map(Into::into).collect();
-        Layer { nodes }
+impl From<Layer> for InnerLayer {
+    fn from(value: Layer) -> Self {
+        todo!()
     }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Layer {
-    pub nodes: Box<[Node]>,
 }
 
 impl Layer {
-    pub fn new(size: usize, prev_size: usize) -> Layer {
-        Layer {
-            nodes: std::iter::repeat_with(|| Node::new(prev_size))
+    pub fn random<I>(size: usize, prev: I) -> Self
+    where
+        I: IntoIterator<Item = Uuid>,
+    {
+        let prev: Vec<_> = prev.into_iter().collect();
+        Self {
+            nodes: std::iter::repeat_with(|| Node::random(&prev))
                 .take(size)
                 .collect(),
         }
+    }
+    // pub fn new(prev: Option<Rc<Layer>>, nodes: Box<[Node]>) -> Self {
+    //     Self {
+    //         prev,
+    //         nodes: nodes.into_vec().into_iter().map(Into::into).collect(),
+    //     }
+    // }
+    pub fn add_node(&mut self) {
+        todo!()
+
+        // let size = self.prev.get().map(|l| l.nodes.len()).unwrap_or(0);
+
+        // let new = Rc::new(Node::random(size));
+
+        // self.nodes.push(new);
+    }
+
+    #[deprecated = "Layer no longer needs validation. Just remove the call."]
+    pub fn validate(&mut self, prev: Option<Rc<Layer>>, next: Option<Rc<Layer>>) -> Result<()> {
+        unimplemented!()
+        //     if self.__valid {
+        //         return Err(Error::generic(
+        //             "Could not validate layer beacuse is is already valid".into(),
+        //         ));
+        //     }
+        //
+        //     const CELL_ERROR: fn(Rc<Layer>) -> Error =
+        //         |_| Error::generic(String::from("failed to set data in cell"));
+        //
+        //     if let Some(prev) = prev {
+        //         self.prev.set(prev).map_err(CELL_ERROR)?;
+        //     }
+        //
+        //     if let Some(next) = next {
+        //         self.next.set(next).map_err(CELL_ERROR)?;
+        //     }
+        //
+        //     self.__valid = true;
+        //
+        //     Ok(())
     }
 }

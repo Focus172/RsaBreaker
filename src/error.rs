@@ -7,6 +7,12 @@ pub enum Error {
     Io(#[from] io::Error),
     #[error("Failed to serialized the Network: `{0}`")]
     Creation(#[from] json::Error),
-    // #[error(transparent)]
-    // Static
+    #[error("Generic Error: `{0}`")]
+    Static(String),
+}
+
+impl Error {
+    pub fn generic(thing: String) -> Self {
+        Self::Static(thing)
+    }
 }
