@@ -1,7 +1,9 @@
 // #![allow(unused)]
-#![feature(alloc_layout_extra)]
-#![feature(iter_map_windows)]
+// #![feature(alloc_layout_extra)]
+// #![feature(iter_map_windows)]
 #![feature(array_windows)]
+#![feature(lazy_cell)]
+#![feature(yeet_expr)]
 
 pub mod data;
 pub mod error;
@@ -11,10 +13,10 @@ pub mod traits;
 pub mod util;
 pub mod world;
 
-
 use crate::prelude::*;
 
 use crate::data::Data;
+use crate::util::iter::Stream;
 
 #[tokio::main]
 async fn main() -> Result<()> {

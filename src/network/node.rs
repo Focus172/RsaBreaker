@@ -29,7 +29,7 @@ impl Node {
         let uuid = rand::random();
         let weights = RwLock::new(
             prev.iter()
-                .map(|u| *u)
+                .copied()
                 .zip(util::rand::weights(prev.len(), 0.3, 0.7).into_vec())
                 .collect(),
         );
@@ -41,7 +41,7 @@ impl Node {
             ..Default::default()
         });
 
-        crate::world::add_node(uuid, Arc::downgrade(&node));
+        WORLD.push(&node);
 
         node
     }

@@ -1,5 +1,6 @@
-pub mod rand;
 pub mod aslice;
+pub mod iter;
+pub mod rand;
 
 // fn sized_seq<const N: usize>() -> [usize; N] {
 //     // SAFETY: MaybeUninit does not have to be initialized

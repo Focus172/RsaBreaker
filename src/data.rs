@@ -4,11 +4,14 @@ use tokio::task::JoinHandle;
 
 use rsa::{traits::PrivateKeyParts, BigUint, RsaPrivateKey, RsaPublicKey};
 
+use crate::util::iter::Stream;
+
 // use std::sync::Barrier;
 
 /// An infinite, async iterable data source for key pairs
+#[derive(Default)]
 pub struct Data {
-    rx: mpsc::Receiver<(RsaPublicKey, RsaPrivateKey)>,
+    rx: Option<mpsc::Receiver<(RsaPublicKey, RsaPrivateKey)>>,
     handle: Option<JoinHandle<()>>,
     sent: usize,
 }
@@ -37,27 +40,35 @@ impl Data {
         });
 
         Data {
-            rx,
+            rx: Some(rx),
             handle: Some(handle),
             sent: 0,
         }
     }
 
     pub async fn close(&mut self) {
-        self.rx.close();
+        self.rx.take().unwrap().close();
         let h = self
             .handle
             .take()
             .expect("You cannont close the data channel twice");
         h.await.unwrap();
     }
+}
 
-    pub async fn next(&mut self) -> Option<(RsaPublicKey, RsaPrivateKey)> {
+impl Stream for Data {
+    type Item = (RsaPublicKey, RsaPrivateKey);
+
+    async fn next(&mut self) -> Option<Self::Item> {
         if self.sent > 20 {
-            None
-        } else {
+            do yeet
+        }
+
+        if let Some(ref mut rx) = self.rx {
             self.sent += 1;
-            self.rx.recv().await
+            rx.recv().await
+        } else {
+            None
         }
     }
 }

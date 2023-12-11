@@ -1,7 +1,6 @@
 use crate::prelude::*;
-use std::{rc::Rc, sync::Arc};
-
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
 use super::Node;
 
@@ -24,7 +23,7 @@ pub struct InnerLayer {
 impl From<InnerLayer> for Layer {
     fn from(value: InnerLayer) -> Self {
         for node in value.nodes.iter() {
-            crate::world::add_node(node.uuid, Arc::downgrade(node));
+            WORLD.push(node);
         }
         Self {
             // prev: value.prev,
@@ -36,7 +35,7 @@ impl From<InnerLayer> for Layer {
 
 impl From<Layer> for InnerLayer {
     fn from(value: Layer) -> Self {
-        todo!()
+        Self { nodes: value.nodes }
     }
 }
 
@@ -66,30 +65,5 @@ impl Layer {
         // let new = Rc::new(Node::random(size));
 
         // self.nodes.push(new);
-    }
-
-    #[deprecated = "Layer no longer needs validation. Just remove the call."]
-    pub fn validate(&mut self, prev: Option<Rc<Layer>>, next: Option<Rc<Layer>>) -> Result<()> {
-        unimplemented!()
-        //     if self.__valid {
-        //         return Err(Error::generic(
-        //             "Could not validate layer beacuse is is already valid".into(),
-        //         ));
-        //     }
-        //
-        //     const CELL_ERROR: fn(Rc<Layer>) -> Error =
-        //         |_| Error::generic(String::from("failed to set data in cell"));
-        //
-        //     if let Some(prev) = prev {
-        //         self.prev.set(prev).map_err(CELL_ERROR)?;
-        //     }
-        //
-        //     if let Some(next) = next {
-        //         self.next.set(next).map_err(CELL_ERROR)?;
-        //     }
-        //
-        //     self.__valid = true;
-        //
-        //     Ok(())
     }
 }

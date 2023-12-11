@@ -20,7 +20,7 @@ impl Network {
             .map_err(Into::<Error>::into)
             .and_then(|f| json::from_reader::<_, Network>(f).map_err(Into::into))
         {
-            Ok(mut net) => {
+            Ok(net) => {
                 // Rc::get_mut(net.layers.first_mut().unwrap())
                 //     .unwrap()
                 //     .validate(None);
@@ -67,6 +67,7 @@ impl Network {
         self.backprop_error(target);
         self.update_weight(eta);
     }
+
     pub fn add_layer(&mut self, size: usize) {
         todo!()
     }
@@ -99,7 +100,7 @@ impl Network {
                         .unwrap()
                         .iter()
                         // .zip(curr_layer.prev.iter().map(get_node_output))
-                        .map(|(uuid, weight)| crate::world::get_node_output(uuid).unwrap() * weight)
+                        .map(|(uuid, weight)| WORLD.get_output(uuid).unwrap() * weight)
                         .sum::<f32>();
 
                 node.poutput.store(sigmoid(sum), Ordering::Relaxed);
@@ -158,8 +159,7 @@ impl Network {
                     .unwrap()
                     .iter_mut()
                     .for_each(|(uuid, weight)| {
-                        let o = crate::world::get_node_output(uuid).unwrap();
-                        *weight += o * delta;
+                        *weight += WORLD.get_output(uuid).unwrap() * delta;
                     });
             }
         }
