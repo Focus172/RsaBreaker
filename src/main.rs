@@ -13,35 +13,21 @@ pub mod traits;
 pub mod util;
 pub mod world;
 
-use crate::prelude::*;
+use std::io;
 
-use crate::data::Data;
-use crate::util::iter::Stream;
+use crate::network::Network;
+// use crate::prelude::*;
 
 #[tokio::main]
-async fn main() -> Result<()> {
-    crate::logger();
-
+async fn main() -> io::Result<()> {
+    logger();
     log::debug!("Log init");
 
-    let network = Network::open();
+    let mut network = Network::new("nn.json");
 
-    let mut data = Data::new();
+    network.train().await;
 
-    while let Some((publ_key, priv_key)) = data.next().await {
-        let inpt = publ_key.as_training_data();
-        let targ = priv_key.as_training_data();
-
-        // dbg!(&targ);
-
-        network.train(inpt.into_vec(), targ.into_vec(), 0.1);
-
-        // dbg!(network.output());
-    }
-
-    let f = fs::File::create("nn.yaml").unwrap();
-    yaml::to_writer(f, &network).unwrap();
-    // json::to_writer_pretty(f, &network)?;
+    network.save("nn.json")?;
 
     Ok(())
 }

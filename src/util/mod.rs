@@ -12,3 +12,7 @@ pub mod rand;
 //
 //     unsafe { ret.transpose().assume_init() }
 // }
+
+pub fn sigmoid(i: f32) -> f32 {
+    1. / (1. + f32::exp(-i))
+}

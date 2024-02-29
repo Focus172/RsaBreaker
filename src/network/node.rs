@@ -1,91 +1,101 @@
-use std::sync::{atomic::Ordering, Arc, RwLock};
-
 use crate::prelude::*;
-use atomic::AtomicF32;
 
-#[derive(Debug, Default, Serialize, Deserialize)]
-#[serde(from = "InnerNode")]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Node {
     /// A floating point number that is the weight from the bias node
-    pub bias: RwLock<f32>,
+    pub bias: f32,
     /// An array of values of length equal to previous layers number of nodes that
     /// repersents how much the output of that node should be multiplied by before
     /// being added to this one.
-    pub weights: RwLock<Vec<(Uuid, f32)>>,
-    //pub _weights: AtomicPtr<[f32]>,
+    pub weights: Vec<(Uuid, f32)>,
+    /// a unique name for the node
+    pub uuid: Uuid,
+    /// The iteration that this node was last updated on
+    #[serde(skip)]
+    pub iteration: usize,
+
     /// repersents the output that the node emited this or last cycle
     #[serde(skip)]
-    pub poutput: AtomicF32,
+    poutput: f32,
     /// a calculated value based on the error from last cycle
     #[serde(skip)]
-    pub err_sig: AtomicF32,
-    /// a unique name for the node
-    #[serde(skip)]
-    pub uuid: Uuid,
+    err_sig: f32,
 }
 
 impl Node {
-    pub fn random(prev: &[Uuid]) -> Arc<Self> {
+    pub fn random<I>(prev: I) -> Self
+    where
+        I: Iterator<Item = Uuid> + ExactSizeIterator,
+    {
         let uuid = rand::random();
-        let weights = RwLock::new(
-            prev.iter()
-                .copied()
-                .zip(util::rand::weights(prev.len(), 0.3, 0.7).into_vec())
-                .collect(),
-        );
+        let len = prev.len();
+        let weights = prev
+            .zip(util::rand::weights(len, 0.3, 0.7).into_vec())
+            .collect();
 
-        let node = Arc::new(Self {
-            bias: RwLock::new(0.3),
+        Self {
+            bias: 0.3,
             weights,
             uuid,
             ..Default::default()
-        });
-
-        WORLD.push(&node);
-
-        node
+        }
     }
 }
 
 impl Node {
-    #[inline]
-    pub fn get_bias(&self) -> f32 {
-        *self.bias.read().unwrap()
-    }
-
-    #[inline]
-    pub fn get_output(&self) -> f32 {
-        self.poutput.load(Ordering::Relaxed)
+    /// Sets this output of this node to the given value. This is only allowed
+    /// when the node is an input node.
+    ///
+    /// # Errors
+    /// If the given node has any nodes that it depends on an error will be
+    /// returned.
+    pub fn set_input(&mut self, value: f32) {
+        debug_assert!(self.weights.is_empty());
+        self.poutput = value;
     }
 
     #[inline]
     pub fn get_error_signal(&self) -> f32 {
-        self.err_sig.load(Ordering::Relaxed)
+        self.err_sig
+    }
+
+    pub fn update_error(&mut self) {
+        // the sum of weights that point to it
+        let importance: f32 = self.weights.iter().map(|(_, w)| w).sum();
+
+        self.err_sig = importance * self.output_derivative();
+    }
+
+    pub fn set_error(&mut self, value: f32) {
+        self.err_sig = value;
     }
 
     #[inline]
     pub fn output_derivative(&self) -> f32 {
-        let output = self.get_output();
+        // HACK: this is with the assumption that it is always called after get_output
+        let output = self.poutput;
         output * (1. - output)
     }
-}
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct InnerNode {
-    pub bias: f32,
-    pub weights: Box<[(Uuid, f32)]>,
-    pub uuid: Uuid,
-}
+    pub fn get_output(uuid: &Uuid, world: WorldProxy) -> Option<f32> {
+        let node = world.get(uuid)?;
+        if node.iteration == world.iteration() {
+            Some(node.poutput)
+        } else {
+            let mut n = world.get(uuid)?;
+            let v = n
+                .weights
+                .iter()
+                // .zip(curr_layer.prev.iter().map(get_node_output))
+                .map(|(uuid, weight)| world.get_output(uuid).unwrap() * weight)
+                .sum::<f32>()
+                + n.bias;
 
-// use std::hint;
+            let v = sigmoid(v);
 
-impl From<InnerNode> for Node {
-    fn from(value: InnerNode) -> Self {
-        Self {
-            bias: RwLock::new(value.bias),
-            weights: RwLock::new(value.weights.into_vec()),
-            uuid: value.uuid,
-            ..Default::default()
+            n.iteration += 1;
+            n.poutput = v;
+            Some(v)
         }
     }
 }
